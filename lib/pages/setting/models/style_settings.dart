@@ -26,6 +26,7 @@ import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliPlus/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliPlus/utils/extension/file_ext.dart';
+import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/global_data.dart';
@@ -34,7 +35,6 @@ import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:auto_orientation/auto_orientation.dart';
 import 'package:flutter/material.dart' hide StatefulBuilder;
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -68,9 +68,9 @@ List<SettingsModel> get styleSettings => [
     defaultVal: Pref.horizontalScreen,
     onChanged: (value) {
       if (value) {
-        autoScreen();
+        fullMode();
       } else {
-        AutoOrientation.portraitUpMode();
+        portraitUpMode();
       }
     },
   ),
@@ -82,14 +82,18 @@ List<SettingsModel> get styleSettings => [
     defaultVal: false,
     needReboot: true,
   ),
-  SwitchModel(
-    title: 'App字体字重',
-    subtitle: '点击设置',
-    setKey: SettingBoxKey.appFontWeight,
-    defaultVal: false,
-    leading: const Icon(Icons.text_fields),
-    onChanged: (value) => Get.forceAppUpdate(),
-    onTap: _showFontWeightDialog,
+  SplitModel(
+    normalModel: const NormalModel.split(
+      title: 'App字体字重',
+      subtitle: '点击设置',
+      leading: Icon(Icons.text_fields),
+    ),
+    switchModel: SwitchModel.split(
+      defaultVal: false,
+      setKey: SettingBoxKey.appFontWeight,
+      onChanged: (_) => Get.updateMyAppTheme(),
+      onTap: _showFontWeightDialog,
+    ),
   ),
   NormalModel(
     title: '界面缩放',
@@ -105,7 +109,7 @@ List<SettingsModel> get styleSettings => [
   ),
   const SwitchModel(
     title: '优化平板导航栏',
-    leading: Icon(MdiIcons.soundbar),
+    leading: Icon(Icons.auto_fix_high),
     setKey: SettingBoxKey.optTabletNav,
     defaultVal: true,
     needReboot: true,
@@ -118,12 +122,25 @@ List<SettingsModel> get styleSettings => [
     defaultVal: true,
     needReboot: true,
   ),
+  const SwitchModel(
+    title: '悬浮底栏',
+    leading: Icon(MdiIcons.soundbar),
+    setKey: SettingBoxKey.floatingNavBar,
+    defaultVal: false,
+    needReboot: true,
+  ),
   NormalModel(
     leading: const Icon(Icons.calendar_view_week_outlined),
     title: '列表宽度（dp）限制',
     getSubtitle: () =>
         '当前: 主页${Pref.recommendCardWidth.toInt()}dp 其他${Pref.smallCardWidth.toInt()}dp，屏幕宽度:${MediaQuery.widthOf(Get.context!).toPrecision(2)}dp。宽度越小列数越多。',
     onTap: _showCardWidthDialog,
+  ),
+  const SwitchModel(
+    title: '播放页移除安全边距',
+    leading: Icon(Icons.fit_screen_outlined),
+    setKey: SettingBoxKey.removeSafeArea,
+    defaultVal: false,
   ),
   SwitchModel(
     title: '视频播放页使用深色主题',
@@ -132,7 +149,7 @@ List<SettingsModel> get styleSettings => [
     defaultVal: false,
     onChanged: (value) {
       if (value && MyApp.darkThemeData == null) {
-        Get.forceAppUpdate();
+        Get.updateMyAppTheme();
       }
     },
   ),
@@ -279,7 +296,7 @@ List<SettingsModel> get styleSettings => [
     defaultVal: false,
     onChanged: (value) {
       if (Get.isDarkMode || Pref.darkVideoPage) {
-        Get.forceAppUpdate();
+        Get.updateMyAppTheme();
       }
     },
   ),
@@ -634,7 +651,7 @@ Future<void> _showFontWeightDialog(BuildContext context) async {
   );
   if (res != null) {
     await GStorage.setting.put(SettingBoxKey.appFontWeight, res.toInt() - 1);
-    Get.forceAppUpdate();
+    Get.updateMyAppTheme();
   }
 }
 
@@ -817,9 +834,10 @@ void _showReduceColorDialog(
               if (color.computeLuminance() < 0.2) {
                 showConfirmDialog(
                   context: context,
-                  title:
-                      '确认使用#${(color.toARGB32() & 0xFFFFFF).toRadixString(16).toUpperCase().padLeft(6)}？',
-                  content: '所选颜色过于昏暗，可能会影响图片观看',
+                  title: Text(
+                    '确认使用#${(color.toARGB32() & 0xFFFFFF).toRadixString(16).toUpperCase().padLeft(6)}？',
+                  ),
+                  content: const Text('所选颜色过于昏暗，可能会影响图片观看'),
                   onConfirm: onConfirm,
                 );
               } else {

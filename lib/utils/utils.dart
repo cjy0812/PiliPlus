@@ -81,12 +81,13 @@ abstract final class Utils {
   }
 
   static Color parseColor(String color) =>
-      Color(int.parse(color.replaceFirst('#', 'FF'), radix: 16));
+      Color(int.parse('FF${color.substring(1)}', radix: 16));
 
-  static int? _sdkInt;
-  static Future<int> get sdkInt async {
-    return _sdkInt ??= (await DeviceInfoPlugin().androidInfo).version.sdkInt;
-  }
+  static Color parseMedalColor(String color) => Color(
+    int.parse('${color.substring(7)}${color.substring(1, 7)}', radix: 16),
+  );
+
+  static late int sdkInt;
 
   static bool? _isIpad;
   static Future<bool> get isIpad async {

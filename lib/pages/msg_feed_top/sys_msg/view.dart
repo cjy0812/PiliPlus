@@ -2,6 +2,7 @@ import 'package:PiliPlus/common/skeleton/msg_feed_sys_msg_.dart';
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
 import 'package:PiliPlus/common/widgets/flutter/list_tile.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
+import 'package:PiliPlus/common/widgets/flutter/scroll_view/scroll_view.dart';
 import 'package:PiliPlus/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/http/loading_state.dart';
@@ -37,7 +38,7 @@ class _SysMsgPageState extends State<SysMsgPage> {
       appBar: AppBar(title: const Text('系统通知')),
       body: refreshIndicator(
         onRefresh: _sysMsgController.onRefresh,
-        child: CustomScrollView(
+        child: customScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverPadding(
@@ -82,7 +83,7 @@ class _SysMsgPageState extends State<SysMsgPage> {
                   final item = response[index];
                   void onLongPress() => showConfirmDialog(
                     context: context,
-                    title: '确定删除该通知?',
+                    title: const Text('确定删除该通知?'),
                     onConfirm: () => _sysMsgController.onRemove(item.id, index),
                   );
                   return ListTile(

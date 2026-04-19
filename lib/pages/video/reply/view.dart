@@ -1,11 +1,13 @@
-import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/common/skeleton/video_reply.dart';
+import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
+import 'package:PiliPlus/common/widgets/flutter/scroll_view/scroll_view.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/sliver/sliver_floating_header.dart';
 import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
 import 'package:PiliPlus/http/loading_state.dart';
+import 'package:PiliPlus/pages/common/fab_mixin.dart';
 import 'package:PiliPlus/pages/video/reply/controller.dart';
 import 'package:PiliPlus/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:PiliPlus/pages/video/reply_reply/view.dart';
@@ -13,7 +15,6 @@ import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:easy_debounce/easy_throttle.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:get/get.dart';
 
 class VideoReplyPanel extends StatefulWidget {
@@ -33,7 +34,10 @@ class VideoReplyPanel extends StatefulWidget {
 }
 
 class _VideoReplyPanelState extends State<VideoReplyPanel>
-    with AutomaticKeepAliveClientMixin {
+    with
+        AutomaticKeepAliveClientMixin,
+        SingleTickerProviderStateMixin,
+        FabMixin {
   late VideoReplyController _videoReplyController;
 
   String get heroTag => widget.heroTag;
@@ -64,11 +68,12 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
     final theme = Theme.of(context);
     final child = NotificationListener<UserScrollNotification>(
       onNotification: (notification) {
-        final direction = notification.direction;
-        if (direction == ScrollDirection.forward) {
-          _videoReplyController.showFab();
-        } else if (direction == ScrollDirection.reverse) {
-          _videoReplyController.hideFab();
+        switch (notification.direction) {
+          case .forward:
+            showFab();
+          case .reverse:
+            hideFab();
+          case _:
         }
         return false;
       },
@@ -78,7 +83,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            CustomScrollView(
+            customScrollView(
               controller: widget.isNested
                   ? null
                   : _videoReplyController.scrollController,
@@ -99,7 +104,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
                           ),
                         ),
                         TextButton.icon(
-                          style: StyleString.buttonStyle,
+                          style: Style.buttonStyle,
                           onPressed: _videoReplyController.queryBySort,
                           icon: Icon(
                             Icons.sort,
@@ -129,22 +134,28 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
               ],
             ),
             Positioned(
-              right: kFloatingActionButtonMargin,
-              bottom: kFloatingActionButtonMargin + bottom,
+              right: 0,
+              bottom: 0,
               child: SlideTransition(
-                position: _videoReplyController.animation,
-                child: FloatingActionButton(
-                  heroTag: null,
-                  onPressed: () {
-                    feedBack();
-                    _videoReplyController.onReply(
-                      null,
-                      oid: _videoReplyController.aid,
-                      replyType: _videoReplyController.videoType.replyType,
-                    );
-                  },
-                  tooltip: '发表评论',
-                  child: const Icon(Icons.reply),
+                position: fabAnimation,
+                child: Padding(
+                  padding: .only(
+                    right: kFloatingActionButtonMargin,
+                    bottom: kFloatingActionButtonMargin + bottom,
+                  ),
+                  child: FloatingActionButton(
+                    heroTag: null,
+                    onPressed: () {
+                      feedBack();
+                      _videoReplyController.onReply(
+                        null,
+                        oid: _videoReplyController.aid,
+                        replyType: _videoReplyController.videoType.replyType,
+                      );
+                    },
+                    tooltip: '发表评论',
+                    child: const Icon(Icons.reply),
+                  ),
                 ),
               ),
             ),
@@ -240,6 +251,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
           replyType: _videoReplyController.videoType.replyType,
           isVideoDetail: true,
           isNested: widget.isNested,
+          upMid: _videoReplyController.upMid,
         ),
       );
     });

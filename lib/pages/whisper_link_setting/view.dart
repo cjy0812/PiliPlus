@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/flutter/scroll_view/scroll_view.dart';
 import 'package:PiliPlus/common/widgets/pendant_avatar.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models_new/msg/im_user_infos/datum.dart';
@@ -49,7 +50,7 @@ class _WhisperLinkSettingPageState extends State<WhisperLinkSettingPage> {
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: AppBar(title: const Text('聊天设置')),
-      body: ListView(
+      body: listView(
         padding: EdgeInsets.only(
           bottom: MediaQuery.viewPaddingOf(context).bottom + 100,
         ),
@@ -125,12 +126,11 @@ class _WhisperLinkSettingPageState extends State<WhisperLinkSettingPage> {
                       return ListTile(
                         onTap: () => Get.toNamed('/member?mid=${item.mid}'),
                         leading: PendantAvatar(
-                          avatar: item.face,
+                          item.face,
                           size: 42,
                           badgeSize: 14,
-                          isVip:
-                              item.vip?.status != null && item.vip!.status > 0,
-                          garbPendantImage: item.pendant?.image,
+                          vipStatus: item.vip?.status,
+                          pendantImage: item.pendant?.image,
                           officialType: item.official?.type,
                         ),
                         title: Text(

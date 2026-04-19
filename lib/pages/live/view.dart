@@ -1,8 +1,9 @@
-import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/common/skeleton/video_card_v.dart';
+import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/common/widgets/button/more_btn.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
+import 'package:PiliPlus/common/widgets/flutter/scroll_view/scroll_view.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/pair.dart';
@@ -51,17 +52,17 @@ class _LivePageState extends State<LivePage>
     final ThemeData theme = Theme.of(context);
     return Container(
       clipBehavior: Clip.hardEdge,
-      margin: const EdgeInsets.symmetric(horizontal: StyleString.safeSpace),
-      decoration: const BoxDecoration(borderRadius: StyleString.mdRadius),
+      margin: const EdgeInsets.symmetric(horizontal: Style.safeSpace),
+      decoration: const BoxDecoration(borderRadius: Style.mdRadius),
       child: refreshIndicator(
         onRefresh: controller.onRefresh,
-        child: CustomScrollView(
+        child: customScrollView(
           controller: controller.scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverPadding(
               padding: const EdgeInsets.only(
-                top: StyleString.cardSpace,
+                top: Style.cardSpace,
                 bottom: 100,
               ),
               sliver: SliverMainAxisGroup(
@@ -176,10 +177,10 @@ class _LivePageState extends State<LivePage>
   }
 
   late final gridDelegate = SliverGridDelegateWithExtentAndRatio(
-    mainAxisSpacing: StyleString.cardSpace,
-    crossAxisSpacing: StyleString.cardSpace,
+    mainAxisSpacing: Style.cardSpace,
+    crossAxisSpacing: Style.cardSpace,
     maxCrossAxisExtent: Grid.smallCardWidth,
-    childAspectRatio: StyleString.aspectRatio,
+    childAspectRatio: Style.aspectRatio,
     mainAxisExtent: textScaler.scale(90),
   );
 

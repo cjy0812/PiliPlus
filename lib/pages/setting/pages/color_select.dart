@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:PiliPlus/common/widgets/color_palette.dart';
+import 'package:PiliPlus/common/widgets/flutter/scroll_view/scroll_view.dart';
 import 'package:PiliPlus/main.dart' show MyApp;
 import 'package:PiliPlus/models/common/nav_bar_config.dart';
 import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
@@ -9,6 +10,7 @@ import 'package:PiliPlus/pages/home/view.dart';
 import 'package:PiliPlus/pages/mine/controller.dart';
 import 'package:PiliPlus/pages/setting/widgets/popup_item.dart';
 import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
+import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
@@ -17,7 +19,6 @@ import 'package:flex_seed_scheme/flex_seed_scheme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
-import 'package:hive/hive.dart';
 
 class ColorSelectPage extends StatefulWidget {
   const ColorSelectPage({super.key});
@@ -44,19 +45,13 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
 
   Future<void> _onChanged([bool? val]) async {
     val ??= !ctr.dynamicColor.value;
-    if (val) {
-      if (await MyApp.initPlatformState()) {
-        Get.forceAppUpdate();
-      } else {
-        SmartDialog.showToast('该设备可能不支持动态取色');
-        return;
-      }
-    } else {
-      Get.forceAppUpdate();
+    if (val && !await MyApp.initPlatformState()) {
+      SmartDialog.showToast('设备可能不支持动态取色');
+      return;
     }
-    ctr
-      ..dynamicColor.value = val
-      ..setting.put(SettingBoxKey.dynamicColor, val);
+    ctr.dynamicColor.value = val;
+    await GStorage.setting.put(SettingBoxKey.dynamicColor, val);
+    Get.updateMyAppTheme();
   }
 
   @override
@@ -73,7 +68,7 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: AppBar(title: const Text('选择应用主题')),
-      body: ListView(
+      body: listView(
         children: [
           ListTile(
             onTap: () async {
@@ -117,8 +112,9 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
                   .toList(),
               onSelected: (value, setState) {
                 _dynamicSchemeVariant = value;
-                GStorage.setting.put(SettingBoxKey.schemeVariant, value.index);
-                Get.forceAppUpdate();
+                GStorage.setting
+                    .put(SettingBoxKey.schemeVariant, value.index)
+                    .whenComplete(Get.updateMyAppTheme);
               },
             ),
           ),
@@ -131,10 +127,7 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
                     value: ctr.dynamicColor.value,
                     onChanged: _onChanged,
                     materialTapTargetSize: .shrinkWrap,
-                    visualDensity: const VisualDensity(
-                      horizontal: -4,
-                      vertical: -4,
-                    ),
+                    visualDensity: const .new(horizontal: -4, vertical: -4),
                   ),
                 ),
                 onTap: _onChanged,
@@ -162,13 +155,10 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
                               return GestureDetector(
                                 behavior: HitTestBehavior.opaque,
                                 onTap: () {
-                                  ctr
-                                    ..currentColor.value = index
-                                    ..setting.put(
-                                      SettingBoxKey.customColor,
-                                      index,
-                                    );
-                                  Get.forceAppUpdate();
+                                  ctr.currentColor.value = index;
+                                  GStorage.setting
+                                      .put(SettingBoxKey.customColor, index)
+                                      .whenComplete(Get.updateMyAppTheme);
                                 },
                                 child: Column(
                                   spacing: 3,
@@ -236,6 +226,4 @@ class _ColorSelectController extends GetxController {
   final RxBool dynamicColor = Pref.dynamicColor.obs;
   final RxInt currentColor = Pref.customColor.obs;
   final Rx<ThemeType> themeType = Pref.themeType.obs;
-
-  Box get setting => GStorage.setting;
 }

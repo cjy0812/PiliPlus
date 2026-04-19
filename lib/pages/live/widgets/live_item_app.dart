@@ -1,4 +1,4 @@
-import 'package:PiliPlus/common/constants.dart';
+import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/flutter/layout_builder.dart';
 import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
@@ -33,7 +33,7 @@ class LiveCardVApp extends StatelessWidget {
         child: Column(
           children: [
             AspectRatio(
-              aspectRatio: StyleString.aspectRatio,
+              aspectRatio: Style.aspectRatio,
               child: LayoutBuilder(
                 builder: (context, boxConstraints) {
                   double maxWidth = boxConstraints.maxWidth;
@@ -42,9 +42,7 @@ class LiveCardVApp extends StatelessWidget {
                     clipBehavior: Clip.none,
                     children: [
                       NetworkImgLayer(
-                        src: showFirstFrame
-                            ? (item.systemCover ?? item.cover)
-                            : item.cover,
+                        src: showFirstFrame ? item.systemCover : item.cover,
                         width: maxWidth,
                         height: maxHeight,
                         type: .emote,

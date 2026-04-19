@@ -4,10 +4,9 @@ import 'dart:io' show Platform;
 import 'dart:math' show max, min;
 import 'dart:ui' as ui;
 
-import 'package:PiliPlus/common/constants.dart';
+import 'package:PiliPlus/common/assets.dart';
 import 'package:PiliPlus/http/browser_ua.dart';
 import 'package:PiliPlus/http/constants.dart';
-import 'package:PiliPlus/http/init.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models/common/account_type.dart';
@@ -35,7 +34,6 @@ import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/asset_utils.dart';
 import 'package:PiliPlus/utils/extension/box_ext.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
-import 'package:PiliPlus/utils/extension/string_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
@@ -47,18 +45,18 @@ import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:archive/archive.dart' show getCrc32;
 import 'package:canvas_danmaku/canvas_danmaku.dart';
-import 'package:dio/dio.dart' show Options;
 import 'package:easy_debounce/easy_throttle.dart';
 import 'package:floating/floating.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show HapticFeedback;
+import 'package:flutter/services.dart' show HapticFeedback, DeviceOrientation;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import 'package:get/get.dart';
-import 'package:hive/hive.dart';
+import 'package:hive_ce/hive.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:native_device_orientation/native_device_orientation.dart';
 import 'package:path/path.dart' as path;
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:window_manager/window_manager.dart';
@@ -371,7 +369,7 @@ class PlPlayerController with BlockConfigMixin {
   late final showFsLockBtn = Pref.showFsLockBtn;
   late final keyboardControl = Pref.keyboardControl;
 
-  late final bool _autoEnterFullScreen = Pref.autoEnterFullScreen;
+  late final bool autoEnterFullScreen = Pref.autoEnterFullScreen;
   late final bool autoExitFullscreen = Pref.autoExitFullscreen;
   late final bool autoPlayEnable = Pref.autoPlayEnable;
   late final bool enableVerticalExpand = Pref.enableVerticalExpand;
@@ -516,26 +514,85 @@ class PlPlayerController with BlockConfigMixin {
 
   Box video = GStorage.video;
 
+  bool visible = true;
+
+  DeviceOrientation? _orientation;
+  late final checkIsAutoRotate = Platform.isAndroid && mode != .gravity;
+  StreamSubscription<OrientationParams>? _orientationListener;
+
+  void _stopOrientationListener() {
+    _orientationListener?.cancel();
+    _orientationListener = null;
+  }
+
+  void _onOrientationChanged(OrientationParams param) {
+    if (!visible) return;
+    final orientation = _orientation = param.orientation;
+    final isFullScreen = this.isFullScreen.value;
+    if (checkIsAutoRotate &&
+        param.isAutoRotate != true &&
+        (!isFullScreen ||
+            _isVertical ||
+            orientation == .portraitUp ||
+            orientation == .portraitDown)) {
+      return;
+    }
+    switch (orientation) {
+      case .portraitUp:
+        if (!_isVertical && controlsLock.value) return;
+        if (!horizontalScreen && !_isVertical && isFullScreen) {
+          if (!isManualFS) {
+            triggerFullScreen(status: false, orientation: orientation);
+          }
+        } else {
+          portraitUpMode();
+        }
+      case .portraitDown:
+        if (!horizontalScreen) return;
+        if (!_isVertical && controlsLock.value) return;
+        portraitDownMode();
+      case .landscapeLeft:
+        if (!horizontalScreen && !isFullScreen) {
+          triggerFullScreen(orientation: orientation, isManualFS: false);
+        } else {
+          landscapeLeftMode();
+        }
+      case .landscapeRight:
+        if (!horizontalScreen && !isFullScreen) {
+          triggerFullScreen(orientation: orientation, isManualFS: false);
+        } else {
+          landscapeRightMode();
+        }
+    }
+  }
+
   // 添加一个私有构造函数
   PlPlayerController._() {
+    if (PlatformUtils.isMobile) {
+      _orientationListener = NativeDeviceOrientationPlatform.instance
+          .onOrientationChanged(
+            useSensor: Platform.isAndroid,
+            checkIsAutoRotate: checkIsAutoRotate,
+          )
+          .listen(_onOrientationChanged);
+    }
+
     if (!Accounts.heartbeat.isLogin || Pref.historyPause) {
       enableHeart = false;
     }
 
     if (Platform.isAndroid && autoPiP) {
-      Utils.sdkInt.then((sdkInt) {
-        if (sdkInt < 36) {
-          Utils.channel.setMethodCallHandler((call) async {
-            if (call.method == 'onUserLeaveHint') {
-              if (playerStatus.isPlaying && _isCurrVideoPage) {
-                enterPip();
-              }
+      if (Utils.sdkInt < 36) {
+        Utils.channel.setMethodCallHandler((call) async {
+          if (call.method == 'onUserLeaveHint') {
+            if (playerStatus.isPlaying && _isCurrVideoPage) {
+              enterPip();
             }
-          });
-        } else {
-          _shouldSetPip = true;
-        }
-      });
+          }
+        });
+      } else {
+        _shouldSetPip = true;
+      }
     }
   }
 
@@ -632,7 +689,7 @@ class PlPlayerController with BlockConfigMixin {
       // 数据加载完成
       dataStatus.value = DataStatus.loaded;
 
-      if (autoFullScreenFlag && _autoEnterFullScreen) {
+      if (autoFullScreenFlag && autoEnterFullScreen) {
         triggerFullScreen(status: true);
       }
 
@@ -657,7 +714,7 @@ class PlPlayerController with BlockConfigMixin {
 
     return shadersDirPath = await AssetUtils.getOrCopy(
       'assets/shaders',
-      Constants.mpvAnime4KShaders.followedBy(Constants.mpvAnime4KShadersLite),
+      Assets.mpvAnime4KShaders.followedBy(Assets.mpvAnime4KShadersLite),
       path.join(appSupportDirPath, 'anime_shaders'),
     );
   }
@@ -685,7 +742,7 @@ class PlPlayerController with BlockConfigMixin {
           'set',
           PathUtils.buildShadersAbsolutePath(
             await copyShadersToExternalDirectory,
-            Constants.mpvAnime4KShadersLite,
+            Assets.mpvAnime4KShadersLite,
           ),
         ]);
       case SuperResolutionType.quality:
@@ -695,7 +752,7 @@ class PlPlayerController with BlockConfigMixin {
           'set',
           PathUtils.buildShadersAbsolutePath(
             await copyShadersToExternalDirectory,
-            Constants.mpvAnime4KShaders,
+            Assets.mpvAnime4KShaders,
           ),
         ]);
     }
@@ -776,9 +833,10 @@ class PlPlayerController with BlockConfigMixin {
         return;
       }
       _videoPlayerController = player;
+      if (isAnim && superResolutionType.value != .disable) {
+        await setShader();
+      }
     }
-
-    if (isAnim) await setShader();
 
     final Map<String, String> extras = {};
 
@@ -790,33 +848,32 @@ class PlPlayerController with BlockConfigMixin {
         extras['audio-files'] =
             '"${Platform.isWindows ? audio.replaceAll(';', r'\;') : audio.replaceAll(':', r'\:')}"';
       }
-    }
-
-    if (kDebugMode || Platform.isAndroid) {
-      String audioNormalization = AudioNormalization.getParamFromConfig(
-        Pref.audioNormalization,
-      );
-      if (volume != null && volume.isNotEmpty) {
-        audioNormalization = audioNormalization.replaceFirstMapped(
-          loudnormRegExp,
-          (i) =>
-              'loudnorm=${volume.format(
-                Map.fromEntries(
-                  i.group(1)!.split(':').map((item) {
-                    final parts = item.split('=');
-                    return MapEntry(parts[0].toLowerCase(), num.parse(parts[1]));
-                  }),
-                ),
-              )}',
+      if (kDebugMode || Platform.isAndroid) {
+        String audioNormalization = AudioNormalization.getParamFromConfig(
+          Pref.audioNormalization,
         );
-      } else {
-        audioNormalization = audioNormalization.replaceFirst(
-          loudnormRegExp,
-          AudioNormalization.getParamFromConfig(Pref.fallbackNormalization),
-        );
-      }
-      if (audioNormalization.isNotEmpty) {
-        extras['lavfi-complex'] = '"[aid1] $audioNormalization [ao]"';
+        if (volume != null && volume.isNotEmpty) {
+          audioNormalization = audioNormalization.replaceFirstMapped(
+            loudnormRegExp,
+            (i) =>
+                'loudnorm=${volume.format(
+                  Map.fromEntries(
+                    i.group(1)!.split(':').map((item) {
+                      final parts = item.split('=');
+                      return MapEntry(parts[0].toLowerCase(), num.parse(parts[1]));
+                    }),
+                  ),
+                )}',
+          );
+        } else {
+          audioNormalization = audioNormalization.replaceFirst(
+            loudnormRegExp,
+            AudioNormalization.getParamFromConfig(Pref.fallbackNormalization),
+          );
+        }
+        if (audioNormalization.isNotEmpty) {
+          extras['lavfi-complex'] = '"[aid1] $audioNormalization [ao]"';
+        }
       }
     }
 
@@ -830,38 +887,17 @@ class PlPlayerController with BlockConfigMixin {
     );
   }
 
-  Future<bool> refreshPlayer() async {
+  Future<void>? refreshPlayer() {
     if (dataSource is FileSource) {
-      return true;
+      return null;
     }
-    if (_videoPlayerController == null) {
-      // SmartDialog.showToast('视频播放器为空，请重新进入本页面');
-      return false;
+    if (_videoPlayerController?.current.isNotEmpty ?? false) {
+      return _videoPlayerController!.open(
+        _videoPlayerController!.current.last.copyWith(start: position),
+        play: true,
+      );
     }
-    if (dataSource.videoSource.isNullOrEmpty) {
-      SmartDialog.showToast('视频源为空，请重新进入本页面');
-      return false;
-    }
-    String? audioUri;
-    if (!isLive) {
-      if (dataSource.audioSource.isNullOrEmpty) {
-        SmartDialog.showToast('音频源为空');
-      } else {
-        audioUri = Platform.isWindows
-            ? dataSource.audioSource!.replaceAll(';', '\\;')
-            : dataSource.audioSource!.replaceAll(':', '\\:');
-      }
-    }
-    await _videoPlayerController!.open(
-      Media(
-        dataSource.videoSource,
-        start: position,
-        extras: audioUri == null ? null : {'audio-files': '"$audioUri"'},
-      ),
-      play: true,
-    );
-    return true;
-    // seekTo(currentPos);
+    return null;
   }
 
   // 开始播放
@@ -1002,7 +1038,7 @@ class PlPlayerController with BlockConfigMixin {
             'controllerStream.error.listen',
             const Duration(milliseconds: 10000),
             () {
-              Future.delayed(const Duration(milliseconds: 3000), () async {
+              Future.delayed(const Duration(milliseconds: 3000), () {
                 // if (kDebugMode) {
                 //   debugPrint("isBuffering.value: ${isBuffering.value}");
                 // }
@@ -1014,9 +1050,7 @@ class PlPlayerController with BlockConfigMixin {
                     '视频链接打开失败，重试中',
                     displayTime: const Duration(milliseconds: 500),
                   );
-                  if (!await refreshPlayer()) {
-                    if (kDebugMode) debugPrint("failed");
-                  }
+                  refreshPlayer();
                 }
               });
             },
@@ -1030,7 +1064,8 @@ class PlPlayerController with BlockConfigMixin {
               event.startsWith("Can not open")) {
             return;
           }
-          SmartDialog.showToast('视频加载错误, $event');
+          Utils.reportError(event);
+          // SmartDialog.showToast('视频加载错误, $event');
         }
       }),
       // controllerStream.volume.listen((event) {
@@ -1385,69 +1420,89 @@ class PlPlayerController with BlockConfigMixin {
     updateSubtitleStyle();
   }
 
-  late bool isManualFS = true;
+  double screenRatio = 0.0;
+  bool isManualFS = true;
   late final FullScreenMode mode = Pref.fullScreenMode;
   late final horizontalScreen = Pref.horizontalScreen;
+  late final removeSafeArea = Pref.removeSafeArea;
 
   // 全屏
-  bool fsProcessing = false;
+  bool _fsProcessing = false;
   Future<void> triggerFullScreen({
     bool status = true,
     bool inAppFullScreen = false,
+    DeviceOrientation? orientation,
     bool isManualFS = true,
-    FullScreenMode? mode,
   }) async {
     if (isDesktopPip) return;
     if (isFullScreen.value == status) return;
 
-    if (fsProcessing) {
-      return;
-    }
-    fsProcessing = true;
+    if (_fsProcessing) return;
+    _fsProcessing = true;
     toggleFullScreen(status);
+    this.isManualFS = isManualFS;
     try {
-      mode ??= this.mode;
-      this.isManualFS = isManualFS;
-
       if (status) {
         if (PlatformUtils.isMobile) {
           hideStatusBar();
-          if (mode == FullScreenMode.none) {
+          if (orientation == null && mode == .none) {
             return;
           }
-          if (mode == FullScreenMode.gravity) {
-            await fullAutoModeForceSensor();
-            return;
-          }
-          late final size = MediaQuery.sizeOf(Get.context!);
-          if ((mode == FullScreenMode.vertical ||
-              (mode == FullScreenMode.auto && isVertical) ||
-              (mode == FullScreenMode.ratio &&
-                  (isVertical || size.height / size.width < kScreenRatio)))) {
-            await verticalScreenForTwoSeconds();
+          if (orientation == null &&
+              (mode == .vertical ||
+                  (mode == .auto && isVertical) ||
+                  (mode == .ratio &&
+                      (isVertical || screenRatio < kScreenRatio)))) {
+            await portraitUpMode();
           } else {
-            await landscape();
+            // https://github.com/flutter/flutter/issues/73651
+            // https://github.com/flutter/flutter/issues/183708
+            if (Platform.isAndroid) {
+              if ((orientation ?? _orientation) == .landscapeRight) {
+                await landscapeRightMode();
+              } else {
+                await landscapeLeftMode();
+              }
+            } else {
+              if (orientation == .landscapeLeft) {
+                await landscapeLeftMode();
+              } else {
+                await landscapeRightMode();
+              }
+            }
           }
         } else {
-          await enterDesktopFullscreen(inAppFullScreen: inAppFullScreen);
+          await enterDesktopFullScreen(inAppFullScreen: inAppFullScreen);
         }
       } else {
         if (PlatformUtils.isMobile) {
-          showStatusBar();
-          if (mode == FullScreenMode.none) {
+          if (!removeSafeArea) {
+            showStatusBar();
+          }
+          if (orientation == null && mode == .none) {
             return;
           }
           if (!horizontalScreen) {
-            await verticalScreenForTwoSeconds();
+            await portraitUpMode();
           } else {
-            await autoScreen();
+            switch (_orientation) {
+              case .portraitUp:
+                await portraitUpMode();
+              case .landscapeLeft:
+                await landscapeLeftMode();
+              case .portraitDown:
+                await portraitDownMode();
+              case .landscapeRight:
+                await landscapeRightMode();
+              case _:
+            }
           }
         } else {
-          await exitDesktopFullscreen();
+          await exitDesktopFullScreen();
         }
       }
     } finally {
-      fsProcessing = false;
+      _fsProcessing = false;
     }
   }
 
@@ -1545,12 +1600,29 @@ class PlPlayerController with BlockConfigMixin {
     });
   }
 
-  bool isCloseAll = false;
+  bool _isCloseAll = false;
+  bool get isCloseAll => _isCloseAll;
+
+  void resetScreenRotation() {
+    if (horizontalScreen) {
+      fullMode();
+    } else {
+      portraitUpMode();
+    }
+  }
+
+  void onCloseAll() {
+    _isCloseAll = true;
+    dispose();
+    Get.until((route) => route.isFirst);
+  }
+
   void dispose() {
     // 每次减1，最后销毁
+    resetScreenRotation();
     cancelLongPressTimer();
     _cancelSubForSeek();
-    if (!isCloseAll && _playerCount > 1) {
+    if (!_isCloseAll && _playerCount > 1) {
       _playerCount -= 1;
       _heartDuration = 0;
       if (!_isPreviousVideoPage) {
@@ -1560,7 +1632,11 @@ class PlPlayerController with BlockConfigMixin {
     }
 
     _playerCount = 0;
+    if (removeSafeArea) {
+      showStatusBar();
+    }
     danmakuController = null;
+    _stopOrientationListener();
     _disableAutoEnterPip();
     setPlayCallBack(null);
     dmState.clear();
@@ -1659,34 +1735,7 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   Future<void> getVideoShot() async {
-    try {
-      final res = await Request().get(
-        '/x/player/videoshot',
-        queryParameters: {
-          // 'aid': IdUtils.bv2av(_bvid),
-          'bvid': _bvid,
-          'cid': cid,
-          'index': 1,
-        },
-        options: Options(
-          headers: {
-            'user-agent': BrowserUa.pc,
-            'referer': 'https://www.bilibili.com/video/$bvid',
-          },
-        ),
-      );
-      if (res.data['code'] == 0) {
-        final data = VideoShotData.fromJson(res.data['data']);
-        if (data.index.isNotEmpty) {
-          videoShot = Success(data);
-          return;
-        }
-      }
-      videoShot = const Error(null);
-    } catch (e) {
-      videoShot = const Error(null);
-      if (kDebugMode) debugPrint('getVideoShot: $e');
-    }
+    videoShot = await VideoHttp.videoshot(bvid: bvid, cid: cid!);
   }
 
   void takeScreenshot() {
@@ -1735,22 +1784,25 @@ class PlPlayerController with BlockConfigMixin {
     });
   }
 
-  bool onPopInvokedWithResult(bool didPop, Object? result) {
-    if (Platform.isAndroid && didPop) {
-      _disableAutoEnterPipIfNeeded();
+  void onPopInvokedWithResult(bool didPop, Object? result) {
+    if (didPop) {
+      if (Platform.isAndroid) {
+        _disableAutoEnterPipIfNeeded();
+      }
+      return;
     }
     if (controlsLock.value) {
       onLockControl(false);
-      return true;
+      return;
     }
     if (isDesktopPip) {
       exitDesktopPip();
-      return true;
+      return;
     }
     if (isFullScreen.value) {
       triggerFullScreen(status: false);
-      return true;
+      return;
     }
-    return false;
+    Get.back();
   }
 }

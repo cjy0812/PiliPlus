@@ -202,7 +202,7 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   }
 }
 
-class DynamicSliverAppBar extends StatefulWidget {
+class DynamicSliverAppBar extends StatelessWidget {
   const DynamicSliverAppBar.medium({
     super.key,
     this.leading,
@@ -298,61 +298,56 @@ class DynamicSliverAppBar extends StatefulWidget {
   final EdgeInsetsGeometry? actionsPadding;
 
   @override
-  State<DynamicSliverAppBar> createState() => _DynamicSliverAppBarState();
-}
-
-class _DynamicSliverAppBarState extends State<DynamicSliverAppBar> {
-  @override
   Widget build(BuildContext context) {
-    final double bottomHeight = widget.bottom?.preferredSize.height ?? 0.0;
-    final double topPadding = widget.primary
+    final double bottomHeight = bottom?.preferredSize.height ?? 0.0;
+    final double topPadding = primary
         ? MediaQuery.viewPaddingOf(context).top
         : 0.0;
     final double effectiveCollapsedHeight =
         topPadding + kToolbarHeight + bottomHeight + 1;
 
     return SliverPinnedHeader(
-      onPerformLayout: widget.onPerformLayout,
+      onPerformLayout: onPerformLayout,
       delegate: _SliverAppBarDelegate(
-        leading: widget.leading,
-        automaticallyImplyLeading: widget.automaticallyImplyLeading,
-        title: widget.title,
-        actions: widget.actions,
-        automaticallyImplyActions: widget.automaticallyImplyActions,
-        flexibleSpace: widget.flexibleSpace,
-        bottom: widget.bottom,
-        elevation: widget.elevation,
-        scrolledUnderElevation: widget.scrolledUnderElevation,
-        shadowColor: widget.shadowColor,
-        surfaceTintColor: widget.surfaceTintColor,
-        forceElevated: widget.forceElevated,
-        backgroundColor: widget.backgroundColor,
-        foregroundColor: widget.foregroundColor,
-        iconTheme: widget.iconTheme,
-        actionsIconTheme: widget.actionsIconTheme,
-        primary: widget.primary,
-        centerTitle: widget.centerTitle,
-        excludeHeaderSemantics: widget.excludeHeaderSemantics,
-        titleSpacing: widget.titleSpacing,
+        leading: leading,
+        automaticallyImplyLeading: automaticallyImplyLeading,
+        title: title,
+        actions: actions,
+        automaticallyImplyActions: automaticallyImplyActions,
+        flexibleSpace: flexibleSpace,
+        bottom: bottom,
+        elevation: elevation,
+        scrolledUnderElevation: scrolledUnderElevation,
+        shadowColor: shadowColor,
+        surfaceTintColor: surfaceTintColor,
+        forceElevated: forceElevated,
+        backgroundColor: backgroundColor,
+        foregroundColor: foregroundColor,
+        iconTheme: iconTheme,
+        actionsIconTheme: actionsIconTheme,
+        primary: primary,
+        centerTitle: centerTitle,
+        excludeHeaderSemantics: excludeHeaderSemantics,
+        titleSpacing: titleSpacing,
         collapsedHeight: effectiveCollapsedHeight,
         topPadding: topPadding,
-        shape: widget.shape,
+        shape: shape,
         toolbarHeight: kToolbarHeight,
-        leadingWidth: widget.leadingWidth,
-        toolbarTextStyle: widget.toolbarTextStyle,
-        titleTextStyle: widget.titleTextStyle,
-        systemOverlayStyle: widget.systemOverlayStyle,
-        forceMaterialTransparency: widget.forceMaterialTransparency,
-        useDefaultSemanticsOrder: widget.useDefaultSemanticsOrder,
-        clipBehavior: widget.clipBehavior,
-        actionsPadding: widget.actionsPadding,
+        leadingWidth: leadingWidth,
+        toolbarTextStyle: toolbarTextStyle,
+        titleTextStyle: titleTextStyle,
+        systemOverlayStyle: systemOverlayStyle,
+        forceMaterialTransparency: forceMaterialTransparency,
+        useDefaultSemanticsOrder: useDefaultSemanticsOrder,
+        clipBehavior: clipBehavior,
+        actionsPadding: actionsPadding,
       ),
     );
   }
 }
 
 /// ref [FlexibleSpaceBar]
-class DynamicFlexibleSpaceBar extends StatefulWidget {
+class DynamicFlexibleSpaceBar extends StatelessWidget {
   const DynamicFlexibleSpaceBar({
     super.key,
     required this.background,
@@ -363,14 +358,12 @@ class DynamicFlexibleSpaceBar extends StatefulWidget {
 
   final CollapseMode collapseMode;
 
-  @override
-  State<DynamicFlexibleSpaceBar> createState() =>
-      _DynamicFlexibleSpaceBarState();
-}
-
-class _DynamicFlexibleSpaceBarState extends State<DynamicFlexibleSpaceBar> {
-  double _getCollapsePadding(double t, FlexibleSpaceBarSettings settings) {
-    switch (widget.collapseMode) {
+  static double _getCollapsePadding(
+    CollapseMode collapseMode,
+    double t,
+    FlexibleSpaceBarSettings settings,
+  ) {
+    switch (collapseMode) {
       case CollapseMode.pin:
         return -(settings.maxExtent - settings.currentExtent);
       case CollapseMode.none:
@@ -393,6 +386,8 @@ class _DynamicFlexibleSpaceBarState extends State<DynamicFlexibleSpaceBar> {
       opacity = 1.0;
       topPadding = 0.0;
     } else {
+      height = settings.maxExtent;
+
       final double deltaExtent = settings.maxExtent - settings.minExtent;
 
       // 0.0 -> Expanded
@@ -415,7 +410,7 @@ class _DynamicFlexibleSpaceBarState extends State<DynamicFlexibleSpaceBar> {
           ? 1.0
           : 1.0 - Interval(fadeStart, fadeEnd).transform(t);
 
-      topPadding = _getCollapsePadding(t, settings);
+      topPadding = _getCollapsePadding(collapseMode, t, settings);
     }
 
     return ClipRect(
@@ -427,7 +422,7 @@ class _DynamicFlexibleSpaceBarState extends State<DynamicFlexibleSpaceBar> {
           // through the app bar when it is collapsed.
           alwaysIncludeSemantics: true,
           opacity: opacity,
-          child: widget.background,
+          child: background,
         ),
       ),
     );

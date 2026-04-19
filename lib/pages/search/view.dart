@@ -1,11 +1,12 @@
 import 'dart:convert';
 
+import 'package:PiliPlus/common/widgets/dialog/export_import.dart';
 import 'package:PiliPlus/common/widgets/disabled_icon.dart';
+import 'package:PiliPlus/common/widgets/flutter/scroll_view/scroll_view.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/sliver_wrap.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models_new/search/search_rcmd/data.dart';
-import 'package:PiliPlus/pages/about/view.dart' show showImportExportDialog;
 import 'package:PiliPlus/pages/search/controller.dart';
 import 'package:PiliPlus/pages/search/widgets/hot_keyword.dart';
 import 'package:PiliPlus/pages/search/widgets/search_text.dart';
@@ -61,7 +62,7 @@ class _SearchPageState extends State<SearchPage> {
       appBar: _buildAppBar,
       body: Padding(
         padding: .only(left: padding.left, right: padding.right),
-        child: CustomScrollView(
+        child: customScrollView(
           slivers: [
             if (_searchController.searchSuggestion) _buildSearchSuggest(),
             if (isPortrait) ...[
@@ -424,12 +425,12 @@ class _SearchPageState extends State<SearchPage> {
     onPressed: () => showImportExportDialog<List>(
       context,
       title: '历史记录',
-      toJson: () => jsonEncode(_searchController.historyList),
-      fromJson: (json) {
+      localFileName: () => 'search',
+      onExport: () => jsonEncode(_searchController.historyList),
+      onImport: (json) {
         final list = List<String>.from(json);
         _searchController.historyList.value = list;
         GStorage.historyWord.put('cacheList', list);
-        return true;
       },
     ),
   );

@@ -32,6 +32,7 @@ import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/cache_manager.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
+import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
 import 'package:PiliPlus/utils/path_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
@@ -42,7 +43,7 @@ import 'package:PiliPlus/utils/update.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide RefreshIndicator;
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -69,19 +70,23 @@ List<SettingsModel> get extraSettings => [
       onTap: _showDownPathDialog,
     ),
   ],
-  SwitchModel(
-    title: '空降助手',
-    subtitle: '点击配置',
-    setKey: SettingBoxKey.enableSponsorBlock,
-    defaultVal: false,
-    onTap: (context) => Get.toNamed('/sponsorBlock'),
-    leading: const Stack(
-      clipBehavior: Clip.none,
-      alignment: Alignment.center,
-      children: [
-        Icon(Icons.shield_outlined),
-        Icon(Icons.play_arrow_rounded, size: 15),
-      ],
+  SplitModel(
+    normalModel: const NormalModel.split(
+      title: '空降助手',
+      subtitle: '点击配置',
+      leading: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          Icon(Icons.shield_outlined),
+          Icon(Icons.play_arrow_rounded, size: 15),
+        ],
+      ),
+    ),
+    switchModel: SwitchModel.split(
+      defaultVal: false,
+      setKey: SettingBoxKey.enableSponsorBlock,
+      onTap: (context) => Get.toNamed('/sponsorBlock'),
     ),
   ),
   PopupModel<SkipType>(
@@ -93,14 +98,18 @@ List<SettingsModel> get extraSettings => [
         .put(SettingBoxKey.pgcSkipType, value.index)
         .whenComplete(setState),
   ),
-  SwitchModel(
-    title: '检查未读动态',
-    subtitle: '点击设置检查周期(min)',
-    leading: const Icon(Icons.notifications_none),
-    setKey: SettingBoxKey.checkDynamic,
-    defaultVal: true,
-    onChanged: (value) => Get.find<MainController>().checkDynamic = value,
-    onTap: _showDynDialog,
+  SplitModel(
+    normalModel: const NormalModel.split(
+      title: '检查未读动态',
+      subtitle: '点击设置检查周期(min)',
+      leading: Icon(Icons.notifications_none),
+    ),
+    switchModel: SwitchModel.split(
+      defaultVal: true,
+      setKey: SettingBoxKey.checkDynamic,
+      onChanged: (value) => Get.find<MainController>().checkDynamic = value,
+      onTap: _showDynDialog,
+    ),
   ),
   SwitchModel(
     title: '显示视频分段信息',
@@ -329,9 +338,16 @@ List<SettingsModel> get extraSettings => [
   SwitchModel(
     title: '展示头像/评论/动态装饰',
     leading: const Icon(MdiIcons.stickerCircleOutline),
-    setKey: SettingBoxKey.showDynDecorate,
+    setKey: SettingBoxKey.showDecorate,
     defaultVal: true,
-    onChanged: (value) => PendantAvatar.showDynDecorate = value,
+    onChanged: (value) => PendantAvatar.showDecorate = value,
+  ),
+  SwitchModel(
+    title: '显示粉丝勋章',
+    leading: const Icon(MdiIcons.medalOutline),
+    setKey: SettingBoxKey.showMedal,
+    defaultVal: true,
+    onChanged: (value) => GlobalData().showMedal = value,
   ),
   SwitchModel(
     title: '预览 Live Photo',
@@ -607,12 +623,17 @@ List<SettingsModel> get extraSettings => [
     defaultVal: false,
     onChanged: (value) => MemberTabType.showMemberShop = value,
   ),
-  const SwitchModel(
-    leading: Icon(Icons.airplane_ticket_outlined),
-    title: '设置代理',
-    subtitle: '设置代理 host:port',
-    setKey: SettingBoxKey.enableSystemProxy,
-    onTap: _showProxyDialog,
+  const SplitModel(
+    normalModel: NormalModel.split(
+      title: '设置代理',
+      subtitle: '设置代理 host:port',
+      leading: Icon(Icons.airplane_ticket_outlined),
+    ),
+    switchModel: SwitchModel.split(
+      defaultVal: false,
+      setKey: SettingBoxKey.enableSystemProxy,
+      onTap: _showProxyDialog,
+    ),
   ),
   const SwitchModel(
     title: '自动清除缓存',
@@ -972,7 +993,7 @@ Future<void> _showRefreshDragDialog(
   if (res != null) {
     kDragContainerExtentPercentage = res;
     await GStorage.setting.put(SettingBoxKey.refreshDragPercentage, res);
-    Get.forceAppUpdate();
+    setState();
   }
 }
 
@@ -993,7 +1014,19 @@ Future<void> _showRefreshDialog(
   if (res != null) {
     displacement = res;
     await GStorage.setting.put(SettingBoxKey.refreshDisplacement, res);
-    Get.forceAppUpdate();
+    if (WidgetsBinding.instance.rootElement case final context?) {
+      context.visitChildElements(_visitor);
+    }
+    setState();
+  }
+}
+
+void _visitor(Element context) {
+  if (!context.mounted) return;
+  if (context.widget is RefreshIndicator) {
+    context.markNeedsBuild();
+  } else {
+    context.visitChildren(_visitor);
   }
 }
 
