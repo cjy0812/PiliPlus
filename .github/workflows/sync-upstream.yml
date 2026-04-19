@@ -1,0 +1,30 @@
+name: Sync from Upstream
+
+on:
+  schedule:
+    - cron: '0 0 * * *'     
+  workflow_dispatch:         # 允许手动触发
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write          # 可选：冲突时自动创建 Issue
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # 必须，完整历史才能正确对比
+
+      - uses: kuma0128/sync-upstream-action@v1
+        with:
+          upstream_repo: 'bggRGjQaUbCoE/PiliPlus'      # ← 改成真正的上游仓库名
+          upstream_branch: 'main'             # 上游分支，通常是 main 或 master
+          target_branch: 'custom'         # ← 改成你存放自定义功能的 branch
+          token: ${{ secrets.GITHUB_TOKEN }}
+          mode: 'direct'                          # direct 模式
+          pr_title: 'chore: Sync with upstream'
+          pr_labels: 'upstream-sync'
+          create_issue_on_conflict: 'true'  # 可选：冲突时自动开 Issue 提醒你
